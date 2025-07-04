@@ -17,7 +17,7 @@ from agents.supervisor import SupervisorAgent
 # --- Page Configuration and Styling ---
 st.set_page_config(page_title="OrchestrateAI", page_icon="🤖", layout="centered")
 
-# --- Enhanced CSS for UI ---
+# --- Enhanced CSS for improved UI ---
 st.markdown("""
 <style>
     /* Main app background with animated gradient */
@@ -43,8 +43,7 @@ st.markdown("""
     /* Custom header container */
     .header-container {
         text-align: center;
-        padding: 2rem 0 3rem 0;
-        margin-bottom: 2rem;
+        padding: 2rem 0 1rem 0; /* Adjusted padding */
     }
     
     /* Enhanced title styling */
@@ -70,7 +69,7 @@ st.markdown("""
     .subtitle {
         font-size: 1.25rem;
         color: #cbd5e1;
-        margin-bottom: 3rem;
+        margin-bottom: 1.5rem; /* Adjusted margin */
         max-width: 600px;
         margin-left: auto;
         margin-right: auto;
@@ -80,8 +79,8 @@ st.markdown("""
     /* Search container */
     .search-container {
         max-width: 700px;
-        margin: 0 auto 4rem auto;
-        padding: 0 2rem;
+        margin: 2rem auto 2rem auto; /* Adjusted margin */
+        padding: 0 1rem;
     }
     
     /* Enhanced chat input styling */
@@ -342,25 +341,27 @@ for msg in st.session_state.messages:
 
 # --- State Machine for the workflow ---
 if st.session_state.step == 'start':
-    st.markdown('<div class="search-container">', unsafe_allow_html=True)
-    if user_query := st.chat_input('🔍 Enter your research topic... (e.g., "Latest trends in AI", "Climate change impacts", "Cryptocurrency market analysis")'):
-        st.session_state.user_query = user_query
-        st.session_state.messages.append({"role": "user", "content": user_query})
-        st.session_state.step = 'research'
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Add some example queries
-    st.markdown("""
-    <div style="text-align: center; margin-top: 2rem; opacity: 0.7;">
-        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 1rem;">💡 Example queries to get you started:</p>
-        <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
-            <span style="background: rgba(59, 130, 246, 0.1); padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem;">Latest AI developments</span>
-            <span style="background: rgba(59, 130, 246, 0.1); padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem;">Renewable energy trends</span>
-            <span style="background: rgba(59, 130, 246, 0.1); padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem;">Market analysis 2024</span>
+    # The user is prompted to enter their query in the middle of the screen.
+    with st.container():
+        st.markdown('<div class="search-container">', unsafe_allow_html=True)
+        if user_query := st.chat_input('🔍 Enter your research topic... (e.g., "Latest trends in AI", "Climate change impacts")'):
+            st.session_state.user_query = user_query
+            st.session_state.messages.append({"role": "user", "content": user_query})
+            st.session_state.step = 'research'
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Example queries are shown below the main input area.
+        st.markdown("""
+        <div style="text-align: center; margin-top: 2rem; opacity: 0.7;">
+            <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 1rem;">💡 Example queries to get you started:</p>
+            <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+                <span style="background: rgba(59, 130, 246, 0.1); padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem;">Latest AI developments</span>
+                <span style="background: rgba(59, 130, 246, 0.1); padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem;">Renewable energy trends</span>
+                <span style="background: rgba(59, 130, 246, 0.1); padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem;">Market analysis 2024</span>
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
 elif st.session_state.step == 'research':
     with st.chat_message("assistant", avatar="🤖"):
