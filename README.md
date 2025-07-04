@@ -1,6 +1,6 @@
 # OrchestrateAI - A Multi-Agent Research Agency
 
-<!-- ![OrchestrateAI Demo](https://placehold.co/800x400.png)  -->
+![OrchestrateAI Demo](OrchestraAI-demo.gif) 
 
 ## Introduction: My Journey into Agentic AI
 
@@ -34,6 +34,16 @@ OrchestrateAI operates through a clear, structured process managed by the superv
 - **Delegate to Writer**: With all data gathered and approved, the supervisor tasks the `Writer` agent to synthesize everything into a polished, final report.
 - **Deliver**: The final report is presented to the user.
 
+```mermaid
+graph TD
+    User[👤 User] --> Query[Research Query]
+    Query --> Researcher[🔍 Researcher]
+    Researcher --> Analyst[🔬 Analyst] 
+    Analyst --> Writer[✍️ Writer]
+    Writer --> Report[📄 Final Report]
+    
+```
+
 ## Technologies Used
 
 *   **Core Logic**: Python
@@ -51,6 +61,3 @@ Building OrchestrateAI was an incredible learning experience. I moved from theor
 - The power of giving LLMs tools to overcome their inherent limitations.
 - The critical importance of state management in complex AI tasks.
 - How to design systems that are not just autonomous but also controllable and collaborative.
-
-This project represents my current understanding and ability to build the next generation of AI applications. I'm excited to continue exploring this space and welcome any feedback or questions!
-
