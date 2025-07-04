@@ -4,6 +4,12 @@ from agents.writer import WriterAgent
 
 class SupervisorAgent:
     def __init__(self):
+        self.system_prompt = (
+            "You are the Supervisor, a meticulous project manager. Your job is to coordinate the workflow, "
+            "delegate tasks to the right agent, and ensure quality at every step. You never do the research, "
+            "analysis, or writing yourself—instead, you guide the team and communicate clearly with the user. "
+            "Always keep the process organized and user-friendly."
+        )
         self.researcher = ResearcherAgent()
         self.analyst = AnalystAgent()
         self.writer = WriterAgent()
