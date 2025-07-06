@@ -1,0 +1,12 @@
+langchain
+langgraph
+langchain-experimental
+# streamlit
+groq
+# tavily-python
+# fpdf2
+exa_py
+uvicorn
+fastapi
+python-dotenv
+pydantic
