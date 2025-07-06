@@ -2,7 +2,7 @@ langchain
 langgraph
 langchain-experimental
 # streamlit
-groq
+openai
 # tavily-python
 # fpdf2
 exa_py

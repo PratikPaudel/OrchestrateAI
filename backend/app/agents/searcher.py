@@ -8,7 +8,7 @@ class SearcherAgent:
     def __init__(self):
         self.client = Exa(api_key=os.getenv("EXA_API_KEY"))
 
-    def search(self, query: str, max_results: int = 5) -> List[Dict]:
+    def search(self, query: str, max_results: int = 3) -> List[Dict]:
         """
         Performs a web search using the Exa API.
         

@@ -46,7 +46,9 @@ class GraphState(TypedDict):
     research_data: Annotated[List[dict], operator.add]
     
     final_report: str
-    error: str
+    # Use operator.or_ to allow multiple nodes to set error messages
+    # The first non-empty error will be used
+    error: Annotated[str, operator.or_]
 
 
 # --- 2. Instantiate Agents ---
@@ -76,8 +78,7 @@ def planner_node(state: GraphState) -> dict:
             "plan": plan,
             "tasks": plan.plan,
             "current_task_index": 0,
-            "research_data": [],
-            "error": ""
+            "research_data": []
         }
     except Exception as e:
         logger.error(f"Planner node failed: {e}")
@@ -89,11 +90,16 @@ def searcher_node(state: GraphState) -> dict:
     """
     logger.info(f"--- 🔍 Executing Searcher Node for Task {state['current_task_index'] + 1} ---")
     try:
+        # Check if we have tasks and if the current index is valid
+        if not state.get("tasks") or state["current_task_index"] >= len(state["tasks"]):
+            logger.error("No tasks available or invalid task index")
+            return {"error": "No tasks available or invalid task index"}
+        
         current_task = state["tasks"][state["current_task_index"]]
         logger.info(f"Searching for: {current_task}")
         search_results = searcher_agent.search(current_task)
         logger.info(f"Found {len(search_results)} search results.")
-        return {"search_results": search_results, "error": ""}
+        return {"search_results": search_results}
     except Exception as e:
         logger.error(f"Searcher node failed: {e}")
         return {"error": f"Searcher node failed: {e}"}
@@ -106,10 +112,24 @@ def summarize_and_review_node(state: GraphState) -> dict:
     logger.info(f"--- 📖 Executing Summarize & Review Node for Task {state['current_task_index'] + 1} ---")
     try:
         query = state["query"]
-        search_results = state["search_results"]
+        search_results = state.get("search_results", [])
+        
+        if not search_results:
+            logger.warning("No search results to process")
+            return {
+                "research_data": [],
+                "current_task_index": state["current_task_index"] + 1
+            }
         
         reviewed_summaries = []
-        for result in search_results:
+        for i, result in enumerate(search_results):
+            logger.info(f"    - Processing result {i+1}/{len(search_results)}: {result['url']}")
+            
+            # Add delay between processing each result
+            if i > 0:
+                logger.info(f"    - Waiting 3 seconds before processing next result...")
+                time.sleep(3)
+            
             logger.info(f"    - Summarizing URL: {result['url']}")
             summary = summarizer_agent.summarize(query, result["content"])
             
@@ -127,12 +147,11 @@ def summarize_and_review_node(state: GraphState) -> dict:
                 logger.warning(f"    - Discarding unreliable source: {result['url']}")
 
         # Update the overall research data with the findings from this task
-        logger.info(f"Task {state['current_task_index'] + 1} complete. Waiting 10 seconds before next task...")
-        time.sleep(10)
+        logger.info(f"Task {state['current_task_index'] + 1} complete. Waiting 5 seconds before next task...")
+        time.sleep(5)  # Longer delay to respect rate limits
         return {
             "research_data": reviewed_summaries,
-            "current_task_index": state["current_task_index"] + 1,
-            "error": ""
+            "current_task_index": state["current_task_index"] + 1
         }
     except Exception as e:
         logger.error(f"Summarize & Review node failed: {e}")
@@ -144,15 +163,13 @@ def writer_node(state: GraphState) -> dict:
     """
     logger.info("--- ✍️ Executing Writer Node ---")
     try:
-        logger.info("Waiting 5 seconds before writing the final report...")
-        time.sleep(5)
         query = state["query"]
         research_data = state["research_data"]
         
         final_report = writer_agent.write_report(query, research_data)
         
         logger.info("Final report written.")
-        return {"final_report": final_report, "error": ""}
+        return {"final_report": final_report}
     except Exception as e:
         logger.error(f"Writer node failed: {e}")
         return {"error": f"Writer node failed: {e}"}

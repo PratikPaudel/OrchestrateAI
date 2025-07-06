@@ -1,11 +1,23 @@
 # File: backend/app/agents/reviewer.py
 import os
-from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
-from langchain_groq import ChatGroq
+import openai
 from typing import List
+import re
 import time
 import random
+
+def retry_with_backoff(func, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except Exception as e:
+            if "429" in str(e):
+                delay = (2 ** attempt) + random.uniform(0, 1)
+                print(f"Rate limit hit, waiting {delay:.1f} seconds...")
+                time.sleep(delay)
+            else:
+                raise
 
 class Review(BaseModel):
     """A structured review of a summary's reliability and content."""
@@ -15,53 +27,70 @@ class Review(BaseModel):
 
 class ReviewerAgent:
     def __init__(self):
-        # Use lighter model for reviewing to reduce rate limit pressure
-        self.llm = ChatGroq(
-            model_name="llama3-8b-8192",  # Changed to lighter model
-            api_key=os.getenv("GROQ_API_KEY")
-        )
+        # Use OpenAI for reviewing
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+        self.client = openai.OpenAI()
         
-        structured_llm = self.llm.with_structured_output(Review)
-        
-        system_prompt = (
+        self.system_prompt = (
             "You are a meticulous and skeptical Reviewer Agent. Your job is to "
             "critically evaluate a summary based on its content. Assess its reliability, "
-            "check for bias, and identify key claims. Be objective and analytical."
+            "check for bias, and identify key claims. Be objective and analytical.\n\n"
+            "Respond in the following format:\n"
+            "RELIABLE: [YES/NO]\n"
+            "CRITIQUE: [Your detailed critique]\n"
+            "CLAIMS: [List of key claims, separated by commas]"
         )
-        
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-            ("human", "Please review the following summary:\n\nSummary:\n---\n{summary}\n---\nSource URL: {url}")
-        ])
-        
-        self.chain = self.prompt | structured_llm
     
-    def _review_with_retry(self, summary: str, url: str, max_attempts=5, base_wait=60, max_wait=300):
-        """Review with retry logic for rate limiting."""
-        attempt = 0
-        while attempt < max_attempts:
-            try:
-                # Add delay before API call
-                if attempt > 0:
-                    time.sleep(3)  # 3 second delay between retries
-                else:
-                    time.sleep(2)  # 2 second delay for first attempt
-                
-                print(f"Reviewing summary (attempt {attempt + 1}/{max_attempts})...")
-                return self.chain.invoke({"summary": summary, "url": url})
-                
-            except Exception as e:
-                if "429" in str(e) or "rate limit" in str(e).lower():
-                    wait_time = min(base_wait * (2 ** attempt), max_wait)
-                    wait_time = wait_time + random.uniform(0, 10)  # Add jitter
-                    print(f"Rate limit hit in reviewer. Waiting {wait_time:.1f} seconds before retrying...")
-                    time.sleep(wait_time)
-                    attempt += 1
-                else:
-                    print(f"Non-rate-limit error in reviewer: {e}")
-                    raise
+    def _review_with_retry(self, summary: str, url: str, max_attempts=3):
+        """Review with retry logic."""
+        print(f"Reviewing summary...")
         
-        raise Exception("Max retry attempts reached for reviewing.")
+        prompt = f"{self.system_prompt}\n\nPlease review the following summary:\n\nSummary:\n---\n{summary}\n---\nSource URL: {url}"
+        
+        def make_request():
+            return self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500
+            )
+        
+        response = retry_with_backoff(make_request)
+        time.sleep(2)  # Increased delay to respect rate limits
+        return self._parse_review_response(response.choices[0].message.content)
+    
+    def _parse_review_response(self, response_text: str) -> Review:
+        """Parse the text response into a Review object."""
+        # Default values
+        is_reliable = False
+        critique = "Unable to parse review response"
+        verified_claims = []
+        
+        try:
+            # Extract RELIABLE field
+            reliable_match = re.search(r'RELIABLE:\s*(YES|NO)', response_text, re.IGNORECASE)
+            if reliable_match:
+                is_reliable = reliable_match.group(1).upper() == 'YES'
+            
+            # Extract CRITIQUE field
+            critique_match = re.search(r'CRITIQUE:\s*(.*?)(?=\nCLAIMS:|$)', response_text, re.DOTALL | re.IGNORECASE)
+            if critique_match:
+                critique = critique_match.group(1).strip()
+            
+            # Extract CLAIMS field
+            claims_match = re.search(r'CLAIMS:\s*(.*?)(?=\n|$)', response_text, re.DOTALL | re.IGNORECASE)
+            if claims_match:
+                claims_text = claims_match.group(1).strip()
+                verified_claims = [claim.strip() for claim in claims_text.split(',') if claim.strip()]
+            
+        except Exception as e:
+            print(f"Error parsing review response: {e}")
+            critique = f"Error parsing review: {e}"
+        
+        return Review(
+            critique=critique,
+            is_reliable=is_reliable,
+            verified_claims=verified_claims
+        )
     
     def review(self, summary: str, url: str) -> Review:
         """
