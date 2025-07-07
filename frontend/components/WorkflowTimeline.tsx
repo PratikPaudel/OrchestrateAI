@@ -5,15 +5,34 @@ import { Loader2 } from "lucide-react";
 const AGENT_STEPS = [
   { key: "planner", label: "📝 Planner" },
   { key: "searcher", label: "🔍 Searcher" },
-  { key: "summarizer", label: "📖 Summarizer & Reviewer" }, // Updated to match actual workflow
+  { key: "summarizer", label: "📖 Summarizer & Reviewer" },
   { key: "writer", label: "✍️ Writer" },
 ];
 
-function getStepStatus(stepKey: string, stepProgressMap: any, status: string, idx: number) {
-  if (stepProgressMap[stepKey]) return "complete";
-  // Find the first incomplete step for "inprogress"
-  const completedCount = Object.keys(stepProgressMap).length;
-  if (idx === completedCount && status === "running") return "inprogress";
+function getStepStatus(stepKey: string, stepProgressMap: any, status: string, allSteps: typeof AGENT_STEPS) {
+  const stepData = stepProgressMap[stepKey];
+  
+  // If we have data for this step and it's complete
+  if (stepData && stepData.status === "complete") {
+    return "complete";
+  }
+  
+  // Find completed steps
+  const completedSteps = allSteps.filter(step => 
+    stepProgressMap[step.key] && stepProgressMap[step.key].status === "complete"
+  );
+  
+  // Find the current step index
+  const stepIndex = allSteps.findIndex(step => step.key === stepKey);
+  
+  // If not all steps are complete yet, show progression
+  if (completedSteps.length < allSteps.length) {
+    // If this is the next step to be worked on (right after completed steps)
+    if (stepIndex === completedSteps.length) {
+      return "inprogress";
+    }
+  }
+  
   return "pending";
 }
 
@@ -23,21 +42,27 @@ export default function WorkflowTimeline({ loading, progress, status, error }: {
   status: string;
   error: string | null;
 }) {
-  // Create a map of step progress, handling both old and new step names
+  // Create a map of step progress
   const stepProgressMap = Object.fromEntries(
     progress.map((p: any) => {
-      // Handle the case where backend sends "summarize_and_review" but frontend expects "summarizer"
+      // Handle potential step name mapping if needed
       const stepKey = p.step === "summarize_and_review" ? "summarizer" : p.step;
       return [stepKey, p];
     })
   );
+
+  // Calculate progress percentage
+  const completedSteps = AGENT_STEPS.filter(step => 
+    stepProgressMap[step.key] && stepProgressMap[step.key].status === "complete"
+  );
+  const progressPercentage = (completedSteps.length / AGENT_STEPS.length) * 100;
 
   return (
     <div className="flex flex-col gap-6">
       {/* Progress Bar / Stepper */}
       <div className="flex items-center justify-between mb-2">
         {AGENT_STEPS.map((step, idx) => {
-          const stepStatus = getStepStatus(step.key, stepProgressMap, status, idx);
+          const stepStatus = getStepStatus(step.key, stepProgressMap, status, AGENT_STEPS);
           return (
             <div key={step.key} className="flex flex-col items-center flex-1">
               <div
@@ -65,18 +90,26 @@ export default function WorkflowTimeline({ loading, progress, status, error }: {
       <div className="relative h-2 mb-2">
         <div className="absolute top-1/2 left-4 right-4 h-1 bg-gray-200 rounded-full z-0" />
         <div
-          className="absolute top-1/2 left-4 h-1 bg-blue-500 rounded-full z-10 transition-all"
+          className="absolute top-1/2 left-4 h-1 bg-blue-500 rounded-full z-10 transition-all duration-300"
           style={{
-            width: `${((Object.keys(stepProgressMap).length) / (AGENT_STEPS.length - 1)) * 100}%` || "0%",
-            right: "auto"
+            width: `calc(${progressPercentage}% - 2rem)`,
+            maxWidth: `calc(100% - 2rem)`
           }}
         />
+      </div>
+      
+      {/* Debug info - you can remove this once it's working */}
+      <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+        <div>Status: {status}</div>
+        <div>Completed: {completedSteps.length}/{AGENT_STEPS.length}</div>
+        <div>Progress: {progressPercentage.toFixed(1)}%</div>
+        <div>Steps: {Object.keys(stepProgressMap).join(", ")}</div>
       </div>
       
       {/* Accordion for steps */}
       <Accordion type="multiple" className="w-full">
         {AGENT_STEPS.map((step, idx) => {
-          const stepStatus = getStepStatus(step.key, stepProgressMap, status, idx);
+          const stepStatus = getStepStatus(step.key, stepProgressMap, status, AGENT_STEPS);
           const stepData = stepProgressMap[step.key];
           return (
             <AccordionItem key={step.key} value={step.key} className="mb-2 border border-border rounded-lg bg-background transition-all duration-300">

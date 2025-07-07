@@ -3,6 +3,7 @@ from typing import List, TypedDict, Annotated, Dict, Any
 import operator
 import logging
 import time
+import asyncio
 
 from langgraph.graph import StateGraph, END
 from pydantic import BaseModel
@@ -316,3 +317,97 @@ def execute_research(query: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Research execution failed: {e}")
         return {"error": str(e)}
+
+# --- ASYNC PROGRESS WORKFLOW ---
+async def execute_research_with_progress(query: str, send_progress):
+    """
+    Async generator that runs the workflow step by step, sending progress after each agent step.
+    Yields after each step for WebSocket streaming.
+    """
+    state = {"query": query}
+    try:
+        # 1. Planner
+        logger.info("--- 📝 Executing Planner Node ---")
+        plan = planner_agent.create_plan(query)
+        logger.info(f"Plan created with {len(plan.plan)} tasks.")
+        state["plan"] = plan
+        state["current_task_index"] = 0
+        state["search_results"] = []
+        state["research_data"] = []
+        state["final_report"] = ""
+        state["error"] = ""
+        await send_progress("planner", "complete", "Planner finished", 25)
+        yield {"step": "planner", "status": "complete"}
+
+        # 2. Searcher
+        logger.info("--- 🔍 Executing Searcher Node for Task 1 ---")
+        current_task = plan.plan[0]
+        search_results = searcher_agent.search(current_task)
+        logger.info(f"Found {len(search_results)} search results.")
+        state["search_results"] = search_results
+        await send_progress("searcher", "complete", "Searcher finished", 50)
+        yield {"step": "searcher", "status": "complete"}
+
+        # 3. Summarizer & Reviewer
+        logger.info(f"--- 📖 Executing Summarize & Review Node for Task 1 ---")
+        reviewed_summaries = []
+        for i, result in enumerate(search_results):
+            logger.info(f"    - Processing result {i+1}/{len(search_results)}: {result['url']}")
+            try:
+                logger.info(f"    - Summarizing URL: {result['url']}")
+                summary = summarizer_agent.summarize(current_task, result["content"])
+                logger.info(f"    - Reviewing Summary for: {result['url']}")
+                review = reviewer_agent.review(summary, result["url"])
+                if review.is_reliable:
+                    logger.info(f"    - Source accepted: {result['url']}")
+                    reviewed_summaries.append({
+                        "url": result["url"],
+                        "title": result.get("title", "Unknown"),
+                        "summary": summary,
+                        "review": review.dict(),
+                        "task": current_task
+                    })
+                else:
+                    logger.warning(f"    - Discarding unreliable source: {result['url']}")
+            except Exception as e:
+                logger.error(f"    - Error processing {result['url']}: {e}")
+                continue
+        state["research_data"] = reviewed_summaries
+        await send_progress("summarizer", "complete", "Summarizer & Reviewer finished", 75)
+        yield {"step": "summarizer", "status": "complete"}
+
+        # 4. Writer
+        logger.info("--- ✍️ Executing Writer Node ---")
+        research_data_str = ""
+        for item in reviewed_summaries:
+            try:
+                if isinstance(item, dict):
+                    url = item.get('url', 'Unknown URL')
+                    task = item.get('task', 'Unknown Task')
+                    summary = item.get('summary', 'No summary available')
+                    review_data = item.get('review', {})
+                    if isinstance(review_data, dict):
+                        critique = review_data.get('critique', 'No critique available')
+                    else:
+                        critique = str(review_data) if review_data else 'No critique available'
+                    research_data_str += f"Source: {url}\n"
+                    research_data_str += f"Task: {task}\n"
+                    research_data_str += f"Summary: {summary}\n"
+                    research_data_str += f"Review: {critique}\n"
+                    research_data_str += "---\n"
+                else:
+                    logger.warning(f"Skipping non-dict item: {type(item)}")
+            except Exception as item_error:
+                logger.error(f"Error processing research item: {item_error}")
+                continue
+        if not research_data_str.strip():
+            research_data_str = "No research data available."
+        final_report = writer_agent.write_report(query, research_data_str)
+        state["final_report"] = final_report
+        await send_progress("writer", "complete", "Writer finished", 100)
+        yield {"step": "writer", "status": "complete", "final_report": final_report}
+    except Exception as e:
+        logger.error(f"Workflow failed: {e}")
+        await send_progress("error", "error", str(e), 0)
+        yield {"step": "error", "status": "error", "message": str(e)}
+        
