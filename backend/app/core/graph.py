@@ -75,7 +75,8 @@ def searcher_node(state: GraphState) -> dict:
         logger.info(f"--- 🔍 Executing Searcher Node for Task {state['current_task_index'] + 1} ---")
         logger.info(f"Searching for: {current_task}")
         
-        search_results = searcher_agent.search(current_task)
+        # Request more links from Exa (e.g., 3)
+        search_results = searcher_agent.search(current_task, max_results=3)
         
         logger.info(f"Found {len(search_results)} search results.")
         return {"search_results": search_results}
@@ -342,7 +343,8 @@ async def execute_research_with_progress(query: str, send_progress):
         # 2. Searcher
         logger.info("--- 🔍 Executing Searcher Node for Task 1 ---")
         current_task = plan.plan[0]
-        search_results = searcher_agent.search(current_task)
+        # Request more links from Exa (e.g., 3)
+        search_results = searcher_agent.search(current_task, max_results=3)
         logger.info(f"Found {len(search_results)} search results.")
         state["search_results"] = search_results
         await send_progress("searcher", "complete", "Searcher finished", 50)

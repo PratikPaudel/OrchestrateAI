@@ -119,8 +119,10 @@ export default function WorkflowTimeline({ loading, progress, status, error }: {
                 stepStatus === "inprogress" && "text-blue-700 animate-pulse",
                 stepStatus === "pending" && "text-gray-500"
               )}>
-                <span>{step.label}</span>
-                {stepStatus === "complete" && <span className="ml-2 text-green-600">✓</span>}
+                <span className="flex items-center gap-1">
+                  {step.label}
+                  {stepStatus === "complete" && <span className="text-green-600">✓</span>}
+                </span>
                 {stepStatus === "inprogress" && <Loader2 className="ml-2 animate-spin w-4 h-4 text-blue-600" />}
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4 transition-all duration-300">
