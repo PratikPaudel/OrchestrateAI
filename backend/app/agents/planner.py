@@ -1,10 +1,9 @@
 # File: backend/app/agents/planner.py
 import os
-import openai
 from pydantic import BaseModel, Field
 from typing import List
 from dotenv import load_dotenv
-from ..core.rate_limiter import retry_with_adaptive_backoff
+from ..core.multi_llm import multi_llm_client
 
 load_dotenv()
 
@@ -16,10 +15,9 @@ class ResearchPlan(BaseModel):
 
 class PlannerAgent:
     def __init__(self):
-        openai.api_key = os.getenv("OPENAI_API_KEY")
-        self.client = openai.OpenAI()
+        self.multi_llm = multi_llm_client
 
-    def _openai_plan(self, query):
+    def _multi_llm_plan(self, query):
         prompt = (
             "You are an expert research planner. Your job is to create a clear, "
             "step-by-step research plan based on a user's query. Decompose the query into "
@@ -27,18 +25,10 @@ class PlannerAgent:
             f"Create a research plan for the following query: {query}"
         )
         
-        def make_request():
-            return self.client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=800
-            )
-        
-        response = retry_with_adaptive_backoff(make_request)
-        return response.choices[0].message.content
+        return self.multi_llm.generate_with_fallback(prompt, max_tokens=800)
 
     def create_plan(self, query: str) -> ResearchPlan:
-        plan_text = self._openai_plan(query)
+        plan_text = self._multi_llm_plan(query)
         
         # Parse plan_text into ResearchPlan with better parsing logic
         lines = [line.strip() for line in plan_text.split("\n") if line.strip()]

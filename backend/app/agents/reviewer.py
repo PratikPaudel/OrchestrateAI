@@ -1,10 +1,9 @@
 # File: backend/app/agents/reviewer.py
 import os
 from pydantic import BaseModel, Field
-import openai
 from typing import List
 import re
-from ..core.rate_limiter import retry_with_adaptive_backoff
+from ..core.multi_llm import multi_llm_client
 
 class Review(BaseModel):
     """A structured review of a summary's reliability and content."""
@@ -14,9 +13,8 @@ class Review(BaseModel):
 
 class ReviewerAgent:
     def __init__(self):
-        # Use OpenAI for reviewing
-        openai.api_key = os.getenv("OPENAI_API_KEY")
-        self.client = openai.OpenAI()
+        # Use multi-LLM client
+        self.multi_llm = multi_llm_client
         
         self.system_prompt = (
             "You are a meticulous and skeptical Reviewer Agent. Your job is to "
@@ -28,21 +26,14 @@ class ReviewerAgent:
             "CLAIMS: [List of key claims, separated by commas]"
         )
     
-    def _review_with_retry(self, summary: str, url: str, max_attempts=3):
-        """Review with retry logic."""
+    def _review_with_multi_llm(self, summary: str, url: str):
+        """Review using multi-LLM with fallback."""
         print(f"Reviewing summary...")
         
         prompt = f"{self.system_prompt}\n\nPlease review the following summary:\n\nSummary:\n---\n{summary}\n---\nSource URL: {url}"
         
-        def make_request():
-            return self.client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=500
-            )
-        
-        response = retry_with_adaptive_backoff(make_request)
-        return self._parse_review_response(response.choices[0].message.content)
+        response = self.multi_llm.generate_with_fallback(prompt, max_tokens=500)
+        return self._parse_review_response(response)
     
     def _parse_review_response(self, response_text: str) -> Review:
         """Parse the text response into a Review object."""
@@ -89,4 +80,4 @@ class ReviewerAgent:
         Returns:
             A Review object with the critique and reliability assessment.
         """
-        return self._review_with_retry(summary, url)
+        return self._review_with_multi_llm(summary, url)

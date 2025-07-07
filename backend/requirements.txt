@@ -3,6 +3,8 @@ langgraph
 langchain-experimental
 # streamlit
 openai
+groq
+google-generativeai
 # tavily-python
 # fpdf2
 exa_py

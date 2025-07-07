@@ -13,7 +13,8 @@ from app.agents.searcher import SearcherAgent
 from app.agents.summarizer import SummarizerAgent
 from app.agents.reviewer import ReviewerAgent, Review
 from app.agents.writer import WriterAgent
-from ..core.rate_limiter import rate_limiter
+from app.core.rate_limiter import rate_limiter
+from app.core.multi_llm import multi_llm_client
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -297,11 +298,19 @@ def execute_research(query: str) -> Dict[str, Any]:
         stats = rate_limiter.get_stats()
         logger.info(f"Starting research with rate limiter stats: {stats}")
         
+        # Log multi-LLM stats at start
+        llm_stats = multi_llm_client.get_stats()
+        logger.info(f"Starting research with multi-LLM stats: {llm_stats}")
+        
         result = research_graph.invoke({"query": query})
         
         # Log final rate limiter stats
         final_stats = rate_limiter.get_stats()
         logger.info(f"Research completed. Final rate limiter stats: {final_stats}")
+        
+        # Log final multi-LLM stats
+        final_llm_stats = multi_llm_client.get_stats()
+        logger.info(f"Research completed. Final multi-LLM stats: {final_llm_stats}")
         
         return result
     except Exception as e:
