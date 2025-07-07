@@ -4,22 +4,9 @@ import openai
 from pydantic import BaseModel, Field
 from typing import List
 from dotenv import load_dotenv
-import time
-import random
+from ..core.rate_limiter import retry_with_adaptive_backoff
 
 load_dotenv()
-
-def retry_with_backoff(func, max_retries=3):
-    for attempt in range(max_retries):
-        try:
-            return func()
-        except Exception as e:
-            if "429" in str(e):
-                delay = (2 ** attempt) + random.uniform(0, 1)
-                print(f"Rate limit hit, waiting {delay:.1f} seconds...")
-                time.sleep(delay)
-            else:
-                raise
 
 # Define the structured output for the plan
 class ResearchPlan(BaseModel):
@@ -36,7 +23,7 @@ class PlannerAgent:
         prompt = (
             "You are an expert research planner. Your job is to create a clear, "
             "step-by-step research plan based on a user's query. Decompose the query into "
-            "3-5 specific, answerable sub-tasks. Provide a brief summary of your plan.\n\n"
+            "2-3 specific, answerable sub-tasks. Provide a brief summary of your plan.\n\n"
             f"Create a research plan for the following query: {query}"
         )
         
@@ -47,8 +34,7 @@ class PlannerAgent:
                 max_tokens=800
             )
         
-        response = retry_with_backoff(make_request)
-        time.sleep(2)  # Increased delay to respect rate limits
+        response = retry_with_adaptive_backoff(make_request)
         return response.choices[0].message.content
 
     def create_plan(self, query: str) -> ResearchPlan:
@@ -90,9 +76,9 @@ class PlannerAgent:
                 # First non-task line becomes the summary
                 summary = line
         
-        # Limit to 3-5 tasks maximum
-        if len(tasks) > 5:
-            tasks = tasks[:5]
+        # Limit to 2-3 tasks maximum for faster execution
+        if len(tasks) > 3:
+            tasks = tasks[:3]
         
         # If no tasks found, create a default task
         if not tasks:

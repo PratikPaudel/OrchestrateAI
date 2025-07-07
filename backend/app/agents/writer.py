@@ -2,20 +2,7 @@
 import os
 import openai
 from typing import List, Dict
-import time
-import random
-
-def retry_with_backoff(func, max_retries=3):
-    for attempt in range(max_retries):
-        try:
-            return func()
-        except Exception as e:
-            if "429" in str(e):
-                delay = (2 ** attempt) + random.uniform(0, 1)
-                print(f"Rate limit hit, waiting {delay:.1f} seconds...")
-                time.sleep(delay)
-            else:
-                raise
+from ..core.rate_limiter import retry_with_adaptive_backoff
 
 class WriterAgent:
     def __init__(self):
@@ -36,15 +23,18 @@ class WriterAgent:
         
         prompt = f"{self.system_prompt}\n\nOriginal Query: {query}\n\nResearch Data:\n---\n{research_data_str}\n---\n\nFinal Report:"
         
+        # Log context size for monitoring
+        context_size = len(prompt)
+        print(f"Writer context size: {context_size} characters (~{context_size//4} tokens)")
+        
         def make_request():
             return self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=1500
+                max_tokens=800
             )
         
-        response = retry_with_backoff(make_request)
-        time.sleep(2)  # Increased delay to respect rate limits
+        response = retry_with_adaptive_backoff(make_request)
         return response.choices[0].message.content
     
     def write_report(self, query: str, research_data: List[Dict]) -> str:
@@ -58,10 +48,20 @@ class WriterAgent:
         Returns:
             A string containing the final report in Markdown format.
         """
+        # Limit to top 1 source and truncate content
+        limited_data = research_data[-1:] if len(research_data) > 1 else research_data
+        
+        # Truncate summaries and reviews if too long
+        for item in limited_data:
+            if len(item['summary']) > 300:
+                item['summary'] = item['summary'][:300] + "..."
+            if len(item['review']) > 200:
+                item['review'] = item['review'][:200] + "..."
+        
         # Format the research data into a readable string for the prompt
         research_data_str = "\n\n".join([
             f"Source URL: {d['url']}\nSummary: {d['summary']}\nReview: {d['review']}"
-            for d in research_data
+            for d in limited_data
         ])
         
         return self._write_report_with_retry(query, research_data_str)

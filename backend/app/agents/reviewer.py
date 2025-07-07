@@ -4,20 +4,7 @@ from pydantic import BaseModel, Field
 import openai
 from typing import List
 import re
-import time
-import random
-
-def retry_with_backoff(func, max_retries=3):
-    for attempt in range(max_retries):
-        try:
-            return func()
-        except Exception as e:
-            if "429" in str(e):
-                delay = (2 ** attempt) + random.uniform(0, 1)
-                print(f"Rate limit hit, waiting {delay:.1f} seconds...")
-                time.sleep(delay)
-            else:
-                raise
+from ..core.rate_limiter import retry_with_adaptive_backoff
 
 class Review(BaseModel):
     """A structured review of a summary's reliability and content."""
@@ -54,8 +41,7 @@ class ReviewerAgent:
                 max_tokens=500
             )
         
-        response = retry_with_backoff(make_request)
-        time.sleep(2)  # Increased delay to respect rate limits
+        response = retry_with_adaptive_backoff(make_request)
         return self._parse_review_response(response.choices[0].message.content)
     
     def _parse_review_response(self, response_text: str) -> Review:
