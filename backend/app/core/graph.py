@@ -160,17 +160,17 @@ def writer_node(state: GraphState) -> dict:
                     url = item.get('url', 'Unknown URL')
                     task = item.get('task', 'Unknown Task')
                     summary = item.get('summary', 'No summary available')
-                    
+                    content_excerpt = item.get('content', '')[:2000]  # Add a large excerpt from the source
                     # Handle review data safely
                     review_data = item.get('review', {})
                     if isinstance(review_data, dict):
                         critique = review_data.get('critique', 'No critique available')
                     else:
                         critique = str(review_data) if review_data else 'No critique available'
-                    
                     research_data_str += f"Source: {url}\n"
                     research_data_str += f"Task: {task}\n"
                     research_data_str += f"Summary: {summary}\n"
+                    research_data_str += f"Excerpt: {content_excerpt}\n"
                     research_data_str += f"Review: {critique}\n"
                     research_data_str += "---\n"
                 else:
@@ -387,6 +387,7 @@ async def execute_research_with_progress(query: str, send_progress):
                     url = item.get('url', 'Unknown URL')
                     task = item.get('task', 'Unknown Task')
                     summary = item.get('summary', 'No summary available')
+                    content_excerpt = item.get('content', '')[:2000]  # Add a large excerpt from the source
                     review_data = item.get('review', {})
                     if isinstance(review_data, dict):
                         critique = review_data.get('critique', 'No critique available')
@@ -395,6 +396,7 @@ async def execute_research_with_progress(query: str, send_progress):
                     research_data_str += f"Source: {url}\n"
                     research_data_str += f"Task: {task}\n"
                     research_data_str += f"Summary: {summary}\n"
+                    research_data_str += f"Excerpt: {content_excerpt}\n"
                     research_data_str += f"Review: {critique}\n"
                     research_data_str += "---\n"
                 else:

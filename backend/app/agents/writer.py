@@ -14,8 +14,12 @@ class WriterAgent:
         self.system_prompt = (
             "You are an expert research report writer. Your goal is to synthesize the provided "
             "research findings into a clear, well-structured, and comprehensive report. "
-            "Use Markdown for formatting. Only use the information provided in the research data. "
-            "Do not add any external knowledge. Ensure the report directly addresses the original user query."
+            "Use Markdown for formatting, including clear section headings (e.g., ## Introduction, ## Capabilities), bullet points, and numbered lists where appropriate. "
+            "Only use the information provided in the research data. Do not add any external knowledge. "
+            "Ensure the report directly addresses the original user query. "
+            "Err on the side of completeness: include key points, supporting details, and relevant facts. "
+            "You may include direct quotes or longer excerpts from the sources if they are relevant. "
+            "Do not overly compress or summarize; provide a thorough synthesis."
         )
     
     def _write_report_with_multi_llm(self, query: str, research_data_str: str):
@@ -28,7 +32,7 @@ class WriterAgent:
         context_size = len(prompt)
         logger.info(f"Writer context size: {context_size} characters (~{context_size//4} tokens)")
         
-        return self.multi_llm.generate_with_fallback(prompt, max_tokens=800)
+        return self.multi_llm.generate_with_fallback(prompt, max_tokens=400)
     
     def write_report(self, query: str, research_data_str: str) -> str:
         """

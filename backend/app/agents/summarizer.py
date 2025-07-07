@@ -15,15 +15,15 @@ class SummarizerAgent:
         return [text[i:i+max_chunk_size] for i in range(0, len(text), max_chunk_size)]
 
     def _multi_llm_summarize(self, query, content):
-        prompt = f"Original Query: {query}\n\nSource Text:\n---\n{content}\n---\n\nSummary:"
+        prompt = f"Original Query: {query}\n\nSource Text:\n---\n{content}\n---\n\nPlease provide a detailed synthesis of the above source, including key points, supporting details, and relevant facts. Do not overly compress; err on the side of completeness."
         
         # Use multi-LLM client with fallback
-        return self.multi_llm.generate_with_fallback(prompt, max_tokens=300)
+        return self.multi_llm.generate_with_fallback(prompt, max_tokens=350)
 
     def summarize(self, query: str, content: str) -> str:
         logger.info(f"Summarizing content for query: {query} (length={len(content)})")
         # Truncate content to reasonable size first
-        max_content_length = 3000
+        max_content_length = 6000
         if len(content) > max_content_length:
             content = content[:max_content_length] + "..."
         
