@@ -2,6 +2,9 @@
 import os
 from typing import List
 from ..core.multi_llm import multi_llm_client
+import logging
+
+logger = logging.getLogger("orchestrateai.agent.summarizer")
 
 class SummarizerAgent:
     def __init__(self):
@@ -18,6 +21,7 @@ class SummarizerAgent:
         return self.multi_llm.generate_with_fallback(prompt, max_tokens=300)
 
     def summarize(self, query: str, content: str) -> str:
+        logger.info(f"Summarizing content for query: {query} (length={len(content)})")
         # Truncate content to reasonable size first
         max_content_length = 3000
         if len(content) > max_content_length:
@@ -25,14 +29,17 @@ class SummarizerAgent:
         
         # Use multi-LLM for summarization
         if len(content) <= 2000:
-            return self._multi_llm_summarize(query, content)
+            summary = self._multi_llm_summarize(query, content)
+            logger.info(f"Summary complete for query: {query}")
+            return summary
         else:
             # For longer content, chunk and summarize
             chunks = self._chunk_text(content)
             chunk_summaries = []
             for idx, chunk in enumerate(chunks):
+                logger.info(f"Summarizing chunk {idx+1}/{len(chunks)} for query: {query}")
                 chunk_summary = self._multi_llm_summarize(query, chunk)
                 chunk_summaries.append(chunk_summary)
-            
+            logger.info(f"All chunks summarized for query: {query}")
             # Return the combined summaries without double processing
             return "\n".join(chunk_summaries)

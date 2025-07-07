@@ -3,6 +3,9 @@
 import os
 from exa_py import Exa
 from typing import List, Dict
+import logging
+
+logger = logging.getLogger("orchestrateai.agent.searcher")
 
 class SearcherAgent:
     def __init__(self):
@@ -20,6 +23,7 @@ class SearcherAgent:
             A list of search result dictionaries, each containing 'url', 'title', and 'content'.
         """
         try:
+            logger.info(f"Searching for: {query} (max_results={max_results})")
             # search_and_contents returns both metadata and cleaned HTML content
             response = self.client.search_and_contents(
                 query,
@@ -27,10 +31,11 @@ class SearcherAgent:
                 text=True, # Ensure text content is returned
             )
             # Convert the Result objects into a simpler dictionary format
+            logger.info(f"Found {len(response.results)} results for query: {query}")
             return [
                 {"url": r.url, "title": r.title, "content": r.text}
                 for r in response.results
             ]
         except Exception as e:
-            print(f"An error occurred during search: {e}")
+            logger.error(f"An error occurred during search: {e}")
             return []

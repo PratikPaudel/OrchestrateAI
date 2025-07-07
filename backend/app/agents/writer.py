@@ -2,6 +2,9 @@
 import os
 from typing import List, Dict
 from ..core.multi_llm import multi_llm_client
+import logging
+
+logger = logging.getLogger("orchestrateai.agent.writer")
 
 class WriterAgent:
     def __init__(self):
@@ -17,13 +20,13 @@ class WriterAgent:
     
     def _write_report_with_multi_llm(self, query: str, research_data_str: str):
         """Write report using multi-LLM with fallback."""
-        print(f"Writing final report...")
+        logger.info(f"Writing final report for query: {query}")
         
         prompt = f"{self.system_prompt}\n\nOriginal Query: {query}\n\nResearch Data:\n---\n{research_data_str}\n---\n\nFinal Report:"
         
         # Log context size for monitoring
         context_size = len(prompt)
-        print(f"Writer context size: {context_size} characters (~{context_size//4} tokens)")
+        logger.info(f"Writer context size: {context_size} characters (~{context_size//4} tokens)")
         
         return self.multi_llm.generate_with_fallback(prompt, max_tokens=800)
     

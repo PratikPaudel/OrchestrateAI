@@ -4,6 +4,9 @@ from pydantic import BaseModel, Field
 from typing import List
 from dotenv import load_dotenv
 from ..core.multi_llm import multi_llm_client
+import logging
+
+logger = logging.getLogger("orchestrateai.agent.planner")
 
 load_dotenv()
 
@@ -78,5 +81,5 @@ class PlannerAgent:
         if not summary:
             summary = f"Research plan for: {query}"
         
-        print(f"Parsed {len(tasks)} tasks from plan")
+        logger.info(f"Parsed {len(tasks)} tasks from plan")
         return ResearchPlan(plan=tasks, summary=summary)

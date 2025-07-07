@@ -4,6 +4,9 @@ from pydantic import BaseModel, Field
 from typing import List
 import re
 from ..core.multi_llm import multi_llm_client
+import logging
+
+logger = logging.getLogger("orchestrateai.agent.reviewer")
 
 class Review(BaseModel):
     """A structured review of a summary's reliability and content."""
@@ -28,7 +31,7 @@ class ReviewerAgent:
     
     def _review_with_multi_llm(self, summary: str, url: str):
         """Review using multi-LLM with fallback."""
-        print(f"Reviewing summary...")
+        logger.info(f"Reviewing summary for URL: {url}")
         
         prompt = f"{self.system_prompt}\n\nPlease review the following summary:\n\nSummary:\n---\n{summary}\n---\nSource URL: {url}"
         
@@ -60,7 +63,7 @@ class ReviewerAgent:
                 verified_claims = [claim.strip() for claim in claims_text.split(',') if claim.strip()]
             
         except Exception as e:
-            print(f"Error parsing review response: {e}")
+            logger.error(f"Error parsing review response: {e}")
             critique = f"Error parsing review: {e}"
         
         return Review(

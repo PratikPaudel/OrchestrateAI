@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.ws.jobs import router as ws_router  
+import logging
+
 
 # Load environment variables with explicit debugging
 load_dotenv()
@@ -30,6 +32,13 @@ except Exception as e:
     print(f"❌ Failed to import research_graph: {e}")
 
 app = FastAPI()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
 
 # Only add router if it was successfully imported
 try:
@@ -61,3 +70,4 @@ def debug_env():
         "gemini_key_preview": os.getenv("GEMINI_API_KEY")[:2] + "..." if os.getenv("GEMINI_API_KEY") else "Not set",
         "groq_key_preview": os.getenv("GROQ_API_KEY")[:2] + "..." if os.getenv("GROQ_API_KEY") else "Not set"
     }
+
