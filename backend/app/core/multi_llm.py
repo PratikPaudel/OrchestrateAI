@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-load_dotenv("./backend/.env")
+load_dotenv()
 
 class LLMProvider(ABC):
     """Abstract base class for LLM providers."""

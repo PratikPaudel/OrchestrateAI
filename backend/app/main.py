@@ -1,73 +1,32 @@
 from fastapi import FastAPI
-from pathlib import Path
-from dotenv import load_dotenv
-import os
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.ws.jobs import router as ws_router  
-import logging
+from .api.routes.jobs import router as jobs_router
+from .api.ws.jobs import router as ws_router
+from .utils.logger import logger
 
+app = FastAPI(title="OrchestrateAI Research API", version="1.0.0")
 
-# Load environment variables with explicit debugging
-load_dotenv()
-
-# Additional debug output that matches your original code
-print(f"EXA_API_KEY loaded: {bool(os.getenv('EXA_API_KEY'))}")
-print(f"OPENAI_API_KEY loaded: {bool(os.getenv('OPENAI_API_KEY'))}")
-print(f"GEMINI_API_KEY loaded: {bool(os.getenv('GEMINI_API_KEY'))}")
-print(f"GROQ_API_KEY loaded: {bool(os.getenv('GROQ_API_KEY'))}")
-
-# Now try to import the modules that are failing
-print("\nAttempting to import modules...")
-try:
-    from app.api.routes.jobs import router as api_router
-    print("✅ Successfully imported api_router")
-except Exception as e:
-    print(f"❌ Failed to import api_router: {e}")
-    print("This is where the error is occurring!")
-
-try:
-    from app.core.graph import research_graph
-    print("✅ Successfully imported research_graph")
-except Exception as e:
-    print(f"❌ Failed to import research_graph: {e}")
-
-app = FastAPI()
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
-
-
-# Only add router if it was successfully imported
-try:
-    app.include_router(api_router, prefix="/api/v1")
-    app.include_router(ws_router, prefix="/api/v1")
-    print("✅ Successfully added api_router to app")
-except NameError:
-    print("❌ api_router not available, skipping router addition")
-
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],  # Configure this properly for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Include routers
+app.include_router(jobs_router, prefix="/api/v1", tags=["jobs"])
+app.include_router(ws_router, prefix="/api/v1", tags=["websocket"])
+
 @app.get("/")
-def read_root():
-    return {"message": "OrchestrateAI backend is running. API endpoints coming soon."}
+async def root():
+    return {"message": "OrchestrateAI Research API is running"}
 
-@app.get("/debug/env")
-def debug_env():
-    return {
-        "exa_key_set": bool(os.getenv("EXA_API_KEY")),
-        "openai_key_set": bool(os.getenv("OPENAI_API_KEY")),
-        "exa_key_preview": os.getenv("EXA_API_KEY")[:2] + "..." if os.getenv("EXA_API_KEY") else "Not set",
-        "openai_key_preview": os.getenv("OPENAI_API_KEY")[:2] + "..." if os.getenv("OPENAI_API_KEY") else "Not set",
-        "gemini_key_preview": os.getenv("GEMINI_API_KEY")[:2] + "..." if os.getenv("GEMINI_API_KEY") else "Not set",
-        "groq_key_preview": os.getenv("GROQ_API_KEY")[:2] + "..." if os.getenv("GROQ_API_KEY") else "Not set"
-    }
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
 
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
 import json
-from app.core.graph import execute_research
+from app.core.graph import research_graph
+from app.core.multi_llm import OpenAIProvider
 from app.utils.logger import logger
 
 router = APIRouter()
