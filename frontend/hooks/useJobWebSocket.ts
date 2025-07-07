@@ -4,6 +4,7 @@ export function useJobWebSocket(query: string | null) {
   const [progress, setProgress] = useState<any[]>([]);
   const [status, setStatus] = useState<"idle" | "running" | "complete" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [finalReport, setFinalReport] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -11,6 +12,7 @@ export function useJobWebSocket(query: string | null) {
     setProgress([]);
     setStatus("running");
     setError(null);
+    setFinalReport(null);
 
     const ws = new WebSocket("ws://localhost:8000/api/v1/ws/jobs");
     wsRef.current = ws;
@@ -23,10 +25,11 @@ export function useJobWebSocket(query: string | null) {
       const data = JSON.parse(event.data);
       if (data.status === "complete") {
         setStatus("complete");
+        if (data.final_report) setFinalReport(data.final_report);
       } else if (data.status === "error") {
         setStatus("error");
         setError(data.message || "Unknown error");
-      } else {
+      } else if (data.step) {
         setProgress((prev) => [...prev, data]);
       }
     };
@@ -46,5 +49,5 @@ export function useJobWebSocket(query: string | null) {
     // eslint-disable-next-line
   }, [query]);
 
-  return { progress, status, error };
+  return { progress, status, error, finalReport };
 } 

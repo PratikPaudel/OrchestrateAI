@@ -5,13 +5,15 @@ import { Loader2 } from "lucide-react";
 const AGENT_STEPS = [
   { key: "planner", label: "📝 Planner" },
   { key: "searcher", label: "🔍 Searcher" },
-  { key: "summarizer", label: "📖 Summarizer" },
+  { key: "summarizer", label: "📖 Summarizer & Reviewer" }, // Updated to match actual workflow
   { key: "writer", label: "✍️ Writer" },
 ];
 
-function getStepStatus(idx: number, progress: any[], status: string) {
-  if (idx < progress.length) return "complete";
-  if (idx === progress.length && status === "running") return "inprogress";
+function getStepStatus(stepKey: string, stepProgressMap: any, status: string, idx: number) {
+  if (stepProgressMap[stepKey]) return "complete";
+  // Find the first incomplete step for "inprogress"
+  const completedCount = Object.keys(stepProgressMap).length;
+  if (idx === completedCount && status === "running") return "inprogress";
   return "pending";
 }
 
@@ -21,12 +23,21 @@ export default function WorkflowTimeline({ loading, progress, status, error }: {
   status: string;
   error: string | null;
 }) {
+  // Create a map of step progress, handling both old and new step names
+  const stepProgressMap = Object.fromEntries(
+    progress.map((p: any) => {
+      // Handle the case where backend sends "summarize_and_review" but frontend expects "summarizer"
+      const stepKey = p.step === "summarize_and_review" ? "summarizer" : p.step;
+      return [stepKey, p];
+    })
+  );
+
   return (
     <div className="flex flex-col gap-6">
       {/* Progress Bar / Stepper */}
       <div className="flex items-center justify-between mb-2">
         {AGENT_STEPS.map((step, idx) => {
-          const stepStatus = getStepStatus(idx, progress, status);
+          const stepStatus = getStepStatus(step.key, stepProgressMap, status, idx);
           return (
             <div key={step.key} className="flex flex-col items-center flex-1">
               <div
@@ -49,22 +60,24 @@ export default function WorkflowTimeline({ loading, progress, status, error }: {
           );
         })}
       </div>
+      
       {/* Connecting lines for stepper */}
       <div className="relative h-2 mb-2">
         <div className="absolute top-1/2 left-4 right-4 h-1 bg-gray-200 rounded-full z-0" />
         <div
           className="absolute top-1/2 left-4 h-1 bg-blue-500 rounded-full z-10 transition-all"
           style={{
-            width: `${((progress.length) / (AGENT_STEPS.length - 1)) * 100}%` || "0%",
+            width: `${((Object.keys(stepProgressMap).length) / (AGENT_STEPS.length - 1)) * 100}%` || "0%",
             right: "auto"
           }}
         />
       </div>
+      
       {/* Accordion for steps */}
       <Accordion type="multiple" className="w-full">
         {AGENT_STEPS.map((step, idx) => {
-          const stepStatus = getStepStatus(idx, progress, status);
-          const stepData = progress[idx];
+          const stepStatus = getStepStatus(step.key, stepProgressMap, status, idx);
+          const stepData = stepProgressMap[step.key];
           return (
             <AccordionItem key={step.key} value={step.key} className="mb-2 border border-border rounded-lg bg-background transition-all duration-300">
               <AccordionTrigger className={cn(
@@ -81,8 +94,8 @@ export default function WorkflowTimeline({ loading, progress, status, error }: {
                 {stepStatus === "complete" && stepData && (
                   <div className="text-sm text-gray-800 whitespace-pre-wrap">
                     <b>Status:</b> {stepData.status}<br />
-                    <b>Message:</b> {stepData.message}<br />
-                    <b>Progress:</b> {stepData.progress}%
+                    {stepData.message && <><b>Message:</b> {stepData.message}<br /></>}
+                    {stepData.progress && <><b>Progress:</b> {stepData.progress}%<br /></>}
                   </div>
                 )}
                 {stepStatus === "inprogress" && (
@@ -100,4 +113,4 @@ export default function WorkflowTimeline({ loading, progress, status, error }: {
       {error && <div className="text-red-500 text-sm mt-2">{error}</div>}
     </div>
   );
-} 
+}

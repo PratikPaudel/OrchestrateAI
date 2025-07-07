@@ -4,6 +4,7 @@ import QueryInput from "../components/QueryInput";
 import WorkflowTimeline from "../components/WorkflowTimeline";
 import ReportArtifact from "../components/ReportArtifact";
 import { useJobWebSocket } from "../hooks/useJobWebSocket";
+import ReportSkeleton from "../components/ReportSkeleton";
 
 // Types for backend response (simplified for now)
 type AgentState = {
@@ -24,52 +25,57 @@ type ApiResponse = {
 
 export default function Home() {
   const [query, setQuery] = useState<string | null>(null);
-  const [finalResult, setFinalResult] = useState<ApiResponse | null>(null);
-  const { progress, status, error } = useJobWebSocket(query);
-  const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const { progress, status, error, finalReport } = useJobWebSocket(query);
+  const loading = status === "running";
 
-  // Fallback: fetch final report when job is complete (simulate for now)
-  const handleQuery = async (q: string) => {
+  const handleQuery = (q: string) => {
     setQuery(q);
-    setFinalResult(null);
-    setLoading(true);
-    // Wait for WebSocket to finish, then fetch final report
-    // (In real app, backend should send final report over WebSocket)
-    // For now, poll for final report after status is complete
+    setHasSearched(true);
   };
 
-  // Simulate fetching final report after status is complete
-  // (Replace with real logic if backend sends final report over WebSocket)
-  if (status === "complete" && !finalResult && query && !loading) {
-    setLoading(true);
-    fetch("http://localhost:8000/api/v1/jobs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
-    })
-      .then((res) => res.json())
-      .then((data) => setFinalResult(data))
-      .finally(() => setLoading(false));
-  }
-
   return (
-    <div className="w-full flex flex-col items-center">
-      <QueryInput onSubmit={handleQuery} loading={status === "running" || loading} />
-      <div className="w-full max-w-7xl flex flex-row gap-8 mt-12">
-        {/* Left: Workflow/Chat */}
-        <div className="flex-1 min-w-[350px] max-w-[520px] bg-muted rounded-xl p-6 shadow-sm border border-border">
-          <WorkflowTimeline
-            loading={status === "running" || loading}
-            progress={progress}
-            status={status}
-            error={error}
-          />
-        </div>
-        {/* Right: Report Artifact */}
-        <div className="flex-1 min-w-[350px] max-w-[600px]">
-          <ReportArtifact loading={loading} result={finalResult} error={finalResult?.error || error} />
+    <div className="w-full min-h-screen flex flex-col items-center bg-background">
+      {/* Animated search bar: slightly above center if not searched, sticky top if searched */}
+      <div
+        className={
+          hasSearched
+            ? "w-full flex justify-center sticky top-0 z-20 bg-background pt-8 pb-6 transition-all duration-700 ease-in-out"
+            : "w-full flex justify-center items-start transition-all duration-700 ease-in-out"
+        }
+        style={{ minHeight: hasSearched ? undefined : "60vh", marginTop: hasSearched ? undefined : "20vh" }}
+      >
+        <div className="w-full max-w-2xl">
+          <QueryInput onSubmit={handleQuery} loading={loading} />
         </div>
       </div>
+      {/* Main content area: only show after search */}
+      {hasSearched && (
+        <div className="w-full max-w-7xl flex flex-row gap-8 mt-2 flex-1 items-start">
+          {/* Left: Workflow/Chat */}
+          <div className="flex-1 min-w-[350px] max-w-[520px] bg-muted rounded-xl p-6 shadow-sm border border-border">
+            <WorkflowTimeline
+              loading={loading}
+              progress={progress}
+              status={status}
+              error={error}
+            />
+          </div>
+          {/* Right: Report Artifact or Skeleton */}
+          <div className="flex-1 min-w-[350px] max-w-[600px]">
+            {loading ? (
+              <ReportSkeleton />
+            ) : (
+              <ReportArtifact
+                loading={loading}
+                result={finalReport ? { final_report: finalReport } : null}
+                error={error}
+                expandAll={true}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

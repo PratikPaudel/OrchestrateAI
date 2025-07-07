@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import ReactMarkdown from "react-markdown";
 import { useState } from "react";
 // @ts-ignore
@@ -24,12 +24,10 @@ function splitReportSections(report: string) {
   return sections;
 }
 
-export default function ReportArtifact({ loading, result, error }: { loading: boolean; result: any; error: string | null }) {
-  const [activeTab, setActiveTab] = useState<string | undefined>(undefined);
+export default function ReportArtifact({ loading, result, error, expandAll = false }: { loading: boolean; result: any; error: string | null; expandAll?: boolean }) {
   const report = result?.final_report || "";
   const sections = report ? splitReportSections(report) : {};
   const sectionKeys = Object.keys(sections);
-  const firstTab = sectionKeys[0] || "Report";
 
   // Copy to clipboard
   const handleCopy = () => {
@@ -47,24 +45,36 @@ export default function ReportArtifact({ loading, result, error }: { loading: bo
     URL.revokeObjectURL(url);
   };
 
-  // Export as PDF
+  // Export as PDF (vertical accordion: all sections in order)
   const handleExportPDF = () => {
     if (!report) return;
     const doc = new jsPDF({ unit: "pt", format: "a4" });
-    const lines = doc.splitTextToSize(report, 500);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
+    doc.setFontSize(14);
     let y = 40;
-    lines.forEach((line: string) => {
+    sectionKeys.forEach((key, idx) => {
       if (y > 800) {
         doc.addPage();
         y = 40;
       }
-      doc.text(line, 40, y);
-      y += 18;
+      doc.text(key, 40, y, { maxWidth: 500 });
+      y += 24;
+      const lines = doc.splitTextToSize(sections[key], 500);
+      lines.forEach((line: string) => {
+        if (y > 800) {
+          doc.addPage();
+          y = 40;
+        }
+        doc.text(line, 40, y);
+        y += 18;
+      });
+      y += 12;
     });
     doc.save("orchestrateai-report.pdf");
   };
+
+  // Accordion defaultValue: open all if expandAll, else none
+  const defaultAccordionValue = expandAll ? sectionKeys : [];
 
   return (
     <Card className="p-6 bg-background border border-border shadow-md min-h-[400px] flex flex-col gap-4">
@@ -96,25 +106,21 @@ export default function ReportArtifact({ loading, result, error }: { loading: bo
       </div>
       {error && <div className="text-red-500">{error}</div>}
       {loading && <div className="text-muted-foreground">Generating report...</div>}
-      {!loading && report && sectionKeys.length > 1 ? (
-        <Tabs value={activeTab || firstTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-4">
-            {sectionKeys.map(key => (
-              <TabsTrigger key={key} value={key} className="capitalize">
+      {!loading && report && sectionKeys.length > 0 ? (
+        <Accordion type="multiple" className="w-full" defaultValue={defaultAccordionValue}>
+          {sectionKeys.map((key) => (
+            <AccordionItem key={key} value={key} className="mb-2 border border-border rounded-lg bg-background transition-all duration-300">
+              <AccordionTrigger className="flex items-center gap-2 px-4 py-2 text-base font-semibold transition-colors duration-300">
                 {key}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          {sectionKeys.map(key => (
-            <TabsContent key={key} value={key} className="prose prose-gray max-w-none text-foreground">
-              <ReactMarkdown>{sections[key]}</ReactMarkdown>
-            </TabsContent>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4 transition-all duration-300">
+                <div className="prose prose-gray max-w-none text-foreground">
+                  <ReactMarkdown>{sections[key]}</ReactMarkdown>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
           ))}
-        </Tabs>
-      ) : !loading && report ? (
-        <div className="prose prose-gray max-w-none text-foreground">
-          <ReactMarkdown>{report}</ReactMarkdown>
-        </div>
+        </Accordion>
       ) : !loading && !report && !error ? (
         <div className="text-muted-foreground">The final report will appear here.</div>
       ) : null}
